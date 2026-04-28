@@ -1,0 +1,16 @@
+Age,Income,CreditScore,Employment,Loan_Default
+Young,High,Good,Salaried,No
+Middle,Medium,Good,Salaried,Yes
+Middle,Low,Good,Salaried,No
+Middle,Medium,Average,Salaried,No
+Senior,Medium,Good,Self-Employed,Yes
+Middle,Low,Good,Salaried,No
+Middle,Low,Poor,Salaried,Yes
+Middle,Medium,Good,Self-Employed,Yes
+Senior,Medium,Average,Self-Employed,No
+Middle,Low,Poor,Salaried,Yes
+Young,Low,Average,Salaried,No
+Young,High,Poor,Self-Employed,Yes
+Senior,Low,Good,Salaried,No
+Senior,High,Good,Self-Employed,Yes
+Middle,High,Average,Salaried,No

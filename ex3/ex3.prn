@@ -1,0 +1,285 @@
+Script started on Wed Feb 18 15:09:51 2026
+[23bcs099@mepcolinux exe3]$cat pr5.py
+import csv
+import math
+import random
+from collections import Counter
+
+def euclidean(p1, p2):
+    return math.sqrt(sum((p1[i] - p2[i])**2 for i in range(len(p1))))
+
+def manhattan(p1, p2):
+    return sum(abs(p1[i] - p2[i]) for i in range(len(p1)))
+def get_min_max(data, n):
+    mins = [min(row[i] for row in data) for i in range(n)]
+    maxs = [max(row[i] for row in data) for i in range(n)]
+    return mins, maxs
+
+def get_zscore_params(data, n):
+    means = [sum(row[i] for row in data)/len(data) for i in range(n)]
+    stds = [math.sqrt(sum((row[i]-means[i])**2 for row in data)/len(data)) for i in range(n)]
+    return means, stds
+
+def read_csv(file):
+    data = []
+    try:
+        with open(file, 'r') as f:
+            reader = csv.reader(f)
+            header = next(reader)
+            for r in reader:
+                if not r: continue
+                row = [float(x) for x in r[:-1]] + [r[-1]]
+                data.append(row)
+        return data, len(header)-1
+    except FileNotFoundError:
+        print("File not found."); exit()
+
+def main():
+    file = input("Enter CSV file name: ")
+    raw_data, total_features = read_csv(file)
+
+    n = int(input(f"Enter number of features to use (Total {total_features}): "))
+
+    if len(raw_data) >= 250:
+        raw_data = random.sample(raw_data, 15)
+        print("Dataset sampled to 15 records.")
+    mins, maxs = get_min_max(raw_data, n)
+    means, stds = get_zscore_params(raw_data, n)
+
+    while True:
+        print("\n" + "="*80)
+        unknown_raw = list(map(float, input(f"Enter unknown point ({n} values): ").split()))
+
+        dist_choice = input("Select Distance Metric (1: Euclidean, 2: Manhattan): ")
+        dist_func = euclidean if dist_choice == '1' else manhattan
+
+        norm_type = input("Select Normalization (1: Min-Max, 2: Z-Score, 3: None): ")
+
+
+        processed_table = []
+        norm_unknown = []
+
+        if norm_type == '1':
+            norm_unknown = [round((unknown_raw[i] - mins[i]) / (maxs[i] - mins[i] + 1e-9), 2) for i in range(n)]
+        elif norm_type == '2':
+            norm_unknown = [round((unknown_raw[i] - means[i]) / (stds[i] + 1e-9), 2) for i in range(n)]
+        else:
+            norm_unknown = unknown_raw
+
+        for row in raw_data:
+            orig_feat = row[:n]
+            if norm_type == '1':
+                norm_feat = [round((row[i] - mins[i]) / (maxs[i] - mins[i] + 1e-9), 2) for i in range(n)]
+            elif norm_type == '2':
+                norm_feat = [round((row[i] - means[i]) / (stds[i] + 1e-9), 2) for i in range(n)]
+            else:
+                norm_feat = orig_feat
+
+            distance = dist_func(norm_feat, norm_unknown)
+            processed_table.append({
+                'orig': orig_feat,
+                'norm': norm_feat,
+                'dist': distance,
+                'class': row[-1]
+            })
+        print("Features : [Recency, Frequency, Monetary, Time]")
+
+        print("\n--- DATASET DETAILS ---")
+        print(f"{'Original Values':<25} | {'Normalized':<25} | {'Distance'}")
+        print("-" * 80)
+        for item in processed_table:
+            print(f"{str(item['orig']):<25} | {str(item['norm']):<25} | {item['dist']:.4f}")
+
+        k = int(input("\nEnter value of k: "))
+        v = Counter([i['class'] for i in processed_table])
+        print("Total Positive and Negative votes in DataSet:", dict(v))
+        p = v.most_common(1)[0][0]
+        processed_table.sort(key=lambda x: x['dist'])
+
+        print("\n--- RANKING & K-NEIGHBOR CHECK ---")
+        print(f"{'Features':<25} | {'Distance':<10} | {'Rank':<6} | {'Class':<15} | {'Is Near K?'}")
+        print("-" * 50)
+        for i, item in enumerate(processed_table, 1):
+            is_near = "YES" if i <= k else "NO"
+            print(f"{str(item['orig']):<25} | {item['dist']:.4f} | {i:<6} | {item['class']:<15} | {is_near}")
+            if i == k : 
+                print("...")
+                break
+
+        mode = input("\nWeighted or Unweighted (W/U): ").upper()
+        neighbors = processed_table[:k]
+
+        print("\n--- VOTING & PREDICTION ---")
+        if mode == 'U':
+            votes = Counter([nbr['class'] for nbr in neighbors])
+            print("Unweighted votes:", dict(votes))
+            prediction = votes.most_common(1)[0][0]
+        else:
+            weights = {}
+            for nbr in neighbors:
+                w = 1 / (nbr['dist'] + 1e-5)
+
+                weights[nbr['class']] = weights.get(nbr['class'], 0) + w
+            print("Weighted values:")
+            for c, val in weights.items(): print(f" {c}: {val:.4f}")
+            prediction = max(weights, key=weights.get)
+
+        print(f"\nFINAL PREDICTED CLASS FOR {unknown_raw}: {prediction}")
+
+        if input("\nProcess another point? (Y/N): ").upper() != 'Y': break
+
+if __name__ == "__main__":
+    main()
+[23bcs099@mepcolinux exe3]$python3 pr5.py
+Enter CSV file name: transfusion.data.csv
+Enter number of features to use (Total 4): 4
+Dataset sampled to 15 records.
+
+================================================================================
+Enter unknown point (4 values): 2 12 300 30
+Select Distance Metric (1: Euclidean, 2: Manhattan): 1
+Select Normalization (1: Min-Max, 2: Z-Score, 3: None): 1
+Features : [Recency, Frequency, Monetary, Time]
+
+--- DATASET DETAILS ---
+Original Values           | Normalized                | Distance
+--------------------------------------------------------------------------------
+[4.0, 5.0, 1250.0, 11.0]  | [0.06, 0.25, 0.25, 0.08]  | 0.5644
+[11.0, 1.0, 250.0, 11.0]  | [0.44, 0.0, 0.0, 0.08]    | 0.8827
+[16.0, 10.0, 2500.0, 89.0] | [0.72, 0.56, 0.56, 1.0]   | 1.1849
+[6.0, 17.0, 4250.0, 70.0] | [0.17, 1.0, 1.0, 0.78]    | 1.1619
+[4.0, 5.0, 1250.0, 58.0]  | [0.06, 0.25, 0.25, 0.64]  | 0.6120
+[21.0, 1.0, 250.0, 21.0]  | [1.0, 0.0, 0.0, 0.2]      | 1.2696
+[9.0, 4.0, 1000.0, 65.0]  | [0.33, 0.19, 0.19, 0.72]  | 0.7763
+[9.0, 11.0, 2750.0, 49.0] | [0.33, 0.62, 0.62, 0.53]  | 0.7599
+[4.0, 7.0, 1750.0, 82.0]  | [0.06, 0.37, 0.37, 0.92]  | 0.7864
+[4.0, 6.0, 1500.0, 35.0]  | [0.06, 0.31, 0.31, 0.36]  | 0.5013
+[4.0, 2.0, 500.0, 4.0]    | [0.06, 0.06, 0.06, 0.0]   | 0.7141
+[14.0, 3.0, 750.0, 35.0]  | [0.61, 0.12, 0.12, 0.36]  | 0.8879
+[3.0, 4.0, 1000.0, 29.0]  | [0.0, 0.19, 0.19, 0.29]   | 0.5352
+[14.0, 5.0, 1250.0, 64.0] | [0.61, 0.25, 0.25, 0.71]  | 0.9274
+[16.0, 3.0, 750.0, 35.0]  | [0.72, 0.12, 0.12, 0.36]  | 0.9736
+
+Enter value of k: 3
+Total Positive and Negative votes in DataSet: {'1': 3, '0': 12}
+
+--- RANKING & K-NEIGHBOR CHECK ---
+Features                  | Distance   | Rank   | Class           | Is Near K?
+--------------------------------------------------
+[4.0, 6.0, 1500.0, 35.0]  | 0.5013 | 1      | 0               | YES
+[3.0, 4.0, 1000.0, 29.0]  | 0.5352 | 2      | 1               | YES
+[4.0, 5.0, 1250.0, 11.0]  | 0.5644 | 3      | 1               | YES
+...
+
+Weighted or Unweighted (W/U): W
+
+--- VOTING & PREDICTION ---
+Weighted values:
+ 0: 1.9948
+ 1: 3.6404
+
+FINAL PREDICTED CLASS FOR [2.0, 12.0, 300.0, 30.0]: 1
+
+Process another point? (Y/N): Y
+
+================================================================================
+Enter unknown point (4 values): 2 12 300 30
+Select Distance Metric (1: Euclidean, 2: Manhattan): 1
+Select Normalization (1: Min-Max, 2: Z-Score, 3: None): 1
+Features : [Recency, Frequency, Monetary, Time]
+
+--- DATASET DETAILS ---
+Original Values           | Normalized                | Distance
+--------------------------------------------------------------------------------
+[4.0, 5.0, 1250.0, 11.0]  | [0.06, 0.25, 0.25, 0.08]  | 0.5644
+[11.0, 1.0, 250.0, 11.0]  | [0.44, 0.0, 0.0, 0.08]    | 0.8827
+[16.0, 10.0, 2500.0, 89.0] | [0.72, 0.56, 0.56, 1.0]   | 1.1849
+[6.0, 17.0, 4250.0, 70.0] | [0.17, 1.0, 1.0, 0.78]    | 1.1619
+[4.0, 5.0, 1250.0, 58.0]  | [0.06, 0.25, 0.25, 0.64]  | 0.6120
+[21.0, 1.0, 250.0, 21.0]  | [1.0, 0.0, 0.0, 0.2]      | 1.2696
+[9.0, 4.0, 1000.0, 65.0]  | [0.33, 0.19, 0.19, 0.72]  | 0.7763
+[9.0, 11.0, 2750.0, 49.0] | [0.33, 0.62, 0.62, 0.53]  | 0.7599
+[4.0, 7.0, 1750.0, 82.0]  | [0.06, 0.37, 0.37, 0.92]  | 0.7864
+[4.0, 6.0, 1500.0, 35.0]  | [0.06, 0.31, 0.31, 0.36]  | 0.5013
+[4.0, 2.0, 500.0, 4.0]    | [0.06, 0.06, 0.06, 0.0]   | 0.7141
+[14.0, 3.0, 750.0, 35.0]  | [0.61, 0.12, 0.12, 0.36]  | 0.8879
+[3.0, 4.0, 1000.0, 29.0]  | [0.0, 0.19, 0.19, 0.29]   | 0.5352
+[14.0, 5.0, 1250.0, 64.0] | [0.61, 0.25, 0.25, 0.71]  | 0.9274
+[16.0, 3.0, 750.0, 35.0]  | [0.72, 0.12, 0.12, 0.36]  | 0.9736
+
+Enter value of k: 5
+Total Positive and Negative votes in DataSet: {'1': 3, '0': 12}
+
+--- RANKING & K-NEIGHBOR CHECK ---
+Features                  | Distance   | Rank   | Class           | Is Near K?
+--------------------------------------------------
+[4.0, 6.0, 1500.0, 35.0]  | 0.5013 | 1      | 0               | YES
+[3.0, 4.0, 1000.0, 29.0]  | 0.5352 | 2      | 1               | YES
+[4.0, 5.0, 1250.0, 11.0]  | 0.5644 | 3      | 1               | YES
+[4.0, 5.0, 1250.0, 58.0]  | 0.6120 | 4      | 0               | YES
+[4.0, 2.0, 500.0, 4.0]    | 0.7141 | 5      | 0               | YES
+...
+
+Weighted or Unweighted (W/U): U
+
+--- VOTING & PREDICTION ---
+Unweighted votes: {'0': 3, '1': 2}
+
+FINAL PREDICTED CLASS FOR [2.0, 12.0, 300.0, 30.0]: 0
+
+Process another point? (Y/N): Y
+
+================================================================================
+Enter unknown point (4 values): 2 12 300 30
+Select Distance Metric (1: Euclidean, 2: Manhattan): 1
+Select Normalization (1: Min-Max, 2: Z-Score, 3: None): 1
+Features : [Recency, Frequency, Monetary, Time]
+
+--- DATASET DETAILS ---
+Original Values           | Normalized                | Distance
+--------------------------------------------------------------------------------
+[4.0, 5.0, 1250.0, 11.0]  | [0.06, 0.25, 0.25, 0.08]  | 0.5644
+[11.0, 1.0, 250.0, 11.0]  | [0.44, 0.0, 0.0, 0.08]    | 0.8827
+[16.0, 10.0, 2500.0, 89.0] | [0.72, 0.56, 0.56, 1.0]   | 1.1849
+[6.0, 17.0, 4250.0, 70.0] | [0.17, 1.0, 1.0, 0.78]    | 1.1619
+[4.0, 5.0, 1250.0, 58.0]  | [0.06, 0.25, 0.25, 0.64]  | 0.6120
+[21.0, 1.0, 250.0, 21.0]  | [1.0, 0.0, 0.0, 0.2]      | 1.2696
+[9.0, 4.0, 1000.0, 65.0]  | [0.33, 0.19, 0.19, 0.72]  | 0.7763
+[9.0, 11.0, 2750.0, 49.0] | [0.33, 0.62, 0.62, 0.53]  | 0.7599
+[4.0, 7.0, 1750.0, 82.0]  | [0.06, 0.37, 0.37, 0.92]  | 0.7864
+[4.0, 6.0, 1500.0, 35.0]  | [0.06, 0.31, 0.31, 0.36]  | 0.5013
+[4.0, 2.0, 500.0, 4.0]    | [0.06, 0.06, 0.06, 0.0]   | 0.7141
+[14.0, 3.0, 750.0, 35.0]  | [0.61, 0.12, 0.12, 0.36]  | 0.8879
+[3.0, 4.0, 1000.0, 29.0]  | [0.0, 0.19, 0.19, 0.29]   | 0.5352
+[14.0, 5.0, 1250.0, 64.0] | [0.61, 0.25, 0.25, 0.71]  | 0.9274
+[16.0, 3.0, 750.0, 35.0]  | [0.72, 0.12, 0.12, 0.36]  | 0.9736
+
+Enter value of k: 7
+Total Positive and Negative votes in DataSet: {'1': 3, '0': 12}
+
+--- RANKING & K-NEIGHBOR CHECK ---
+Features                  | Distance   | Rank   | Class           | Is Near K?
+--------------------------------------------------
+[4.0, 6.0, 1500.0, 35.0]  | 0.5013 | 1      | 0               | YES
+[3.0, 4.0, 1000.0, 29.0]  | 0.5352 | 2      | 1               | YES
+[4.0, 5.0, 1250.0, 11.0]  | 0.5644 | 3      | 1               | YES
+[4.0, 5.0, 1250.0, 58.0]  | 0.6120 | 4      | 0               | YES
+[4.0, 2.0, 500.0, 4.0]    | 0.7141 | 5      | 0               | YES
+[9.0, 11.0, 2750.0, 49.0] | 0.7599 | 6      | 1               | YES
+[9.0, 4.0, 1000.0, 65.0]  | 0.7763 | 7      | 0               | YES
+...
+
+Weighted or Unweighted (W/U): W
+
+--- VOTING & PREDICTION ---
+Weighted values:
+ 0: 6.3174
+ 1: 4.9563
+
+FINAL PREDICTED CLASS FOR [2.0, 12.0, 300.0, 30.0]: 0
+
+Process another point? (Y/N): N
+[23bcs099@mepcolinux exe3]$exit
+exit
+
+Script done on Wed Feb 18 15:12:21 2026

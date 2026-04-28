@@ -1,0 +1,367 @@
+Script started on Wed Mar 25 16:25:14 2026
+[23bcs099@mepcolinux ex6]$cat arithmetic.pl
+% ============================================================
+% Prolog Program: Combination of Simple Arithmetic & Set Theory
+% ============================================================
+
+% -----------------------------------------------------------
+% ARITHMETIC OPERATIONS (1–4)
+% -----------------------------------------------------------
+
+% 1. Addition
+add(X, Y, Result) :-
+    number(X),
+    number(Y),
+    Result is X + Y.
+
+% 2. Subtraction
+subract(X, Y, Result) :-
+    number(X),
+    number(Y),
+    Result is X - Y.
+
+% 3. Multiplication
+multiply(X, Y, Result) :-
+    number(X),
+    number(Y),
+    Result is X * Y.
+
+% 4. Integer Division (with zero-check)
+divide(_, 0, _) :-
+    write('Error: Division by zero'), nl, fail.
+divide(X, Y, Result) :-
+    number(X),
+    number(Y),
+    Y =\= 0,
+    Result is X / Y.
+
+% -----------------------------------------------------------
+% SET THEORY OPERATIONS (5–8)
+% -----------------------------------------------------------
+
+% 5. Union of two sets (A ∪ B)
+%    Combines both sets, removing duplicates.
+set_union([], B, B).
+set_union([H|T], B, Union) :-
+    member(H, B), !,
+    set_union(T, B, Union).
+set_union([H|T], B, [H|Union]) :-
+    set_union(T, B, Union).
+
+% 6. Intersection of two sets (A ∩ B)
+%    Elements common to both sets.
+set_intersection([], _, []).
+set_intersection([H|T], B, [H|Intersection]) :-
+    member(H, B), !,
+    set_intersection(T, B, Intersection).
+set_intersection([_|T], B, Intersection) :-
+    set_intersection(T, B, Intersection).
+
+% 7. Difference of two sets (A \ B)
+%    Elements in A but not in B.
+set_difference([], _, []).
+set_difference([H|T], B, Difference) :-
+    member(H, B), !,
+    set_difference(T, B, Difference).
+set_difference([H|T], B, [H|Difference]) :-
+    set_difference(T, B, Difference).
+
+% 8. Subset check (A ⊆ B)
+%    True if every element of A is in B.
+set_subset([], _).
+set_subset([H|T], B) :-
+    member(H, B),
+    set_subset(T, B).
+
+% -----------------------------------------------------------
+% COMBINED OPERATIONS (Arithmetic on Set Results)
+% -----------------------------------------------------------
+
+% Sum all elements of a set
+set_sum([], 0).
+set_sum([H|T], Sum) :-
+    number(H),
+    set_sum(T, RestSum),
+    Sum is H + RestSum.
+
+% Compute the size (cardinality) of a set
+set_size([], 0).
+set_size([_|T], Size) :-
+    set_size(T, RestSize),
+    Size is RestSize + 1.
+
+
+==============================================================
+OUTPUT
+==============================================================
+?- consult('arithmetic.pl').
+true.
+
+?- add(7,3,R).
+R = 10.
+
+?- subract(7,3,R).
+R = 4.
+
+?- multiply(4,3,R).
+R = 12.
+
+?- divide(8,2,R).
+R = 4.
+
+?- divide(8,0,R).
+Error: Division by zero
+false.
+
+[23bcs099@mepcolinux ex6]$cat pizza_hut.pl 
+:- dynamic menu_item/2.
+
+% ----------- Initial menu -----------
+menu_item('Margherita', 300).
+menu_item('Pepperoni', 400).
+menu_item('Veggie', 350).
+menu_item('BBQ Chicken', 450).
+menu_item('Farmhouse', 420).
+menu_item('Paneer Tikka', 430).
+menu_item('Cheese Burst', 480).
+menu_item('Garlic Bread', 160).
+menu_item('Cheesy Dip', 40).
+menu_item('Coke', 60).
+menu_item('Brownie', 120).
+
+% ----------- Entry point -----------
+order :-
+    nl, writeln('Welcome to Pizza Hut!'),
+    show_menu,
+    nl, writeln('Start ordering. (Type "done" to finish).'),
+    order_items([], RawOrder),
+    merge_order(RawOrder, Order), % Combine duplicate items
+    display_bill(Order).
+
+% ----------- Show menu -----------
+show_menu :-
+    nl, writeln('-------- MENU --------'),
+    format('~w~t~25|~w~n', ['Item', 'Price']),
+    writeln('--------------------------------'),
+    forall(menu_item(Item, Price),
+           format('~w~t~25|~d~n', [Item, Price])),
+    writeln('--------------------------------').
+
+% ----------- Find item case-insensitively -----------
+find_item(InputStr, RealName, Price) :-
+    string_lower(InputStr, LowerInput),
+    menu_item(RealName, Price),
+    atom_string(RealName, MenuNameStr),
+    string_lower(MenuNameStr, LowerInput),
+    !. % Stop searching once found
+
+% ----------- Take orders cleanly -----------
+order_items(Current, Final) :-
+    write('Enter item name: '), flush_output,
+    read_line_to_string(user_input, InputStr),
+    normalize_space(string(CleanStr), InputStr),
+    
+    ( string_lower(CleanStr, "done") ->
+        Final = Current
+    ; CleanStr == "" -> % User just pressed Enter by mistake
+        order_items(Current, Final)
+    ; find_item(CleanStr, RealName, Price) ->
+        write('Enter quantity: '), flush_output,
+        read_line_to_string(user_input, QtyStr),
+        ( number_string(Qty, QtyStr) ->
+            append(Current, [order(RealName, Qty, Price)], New),
+            order_items(New, Final)
+        ; writeln('Invalid quantity, try again.'),
+          order_items(Current, Final)
+        )
+    ; % Item not in KB -> Add it
+        format('Item not found. Enter price for "~w": ', [CleanStr]), flush_output,
+        read_line_to_string(user_input, PriceStr),
+        ( number_string(UserPrice, PriceStr) ->
+            atom_string(NewItemAtom, CleanStr),
+            assertz(menu_item(NewItemAtom, UserPrice)),
+            format('Added "~w" to menu.~n', [NewItemAtom]),
+            write('Enter quantity: '), flush_output,
+            read_line_to_string(user_input, QtyStr2),
+            ( number_string(Qty2, QtyStr2) ->
+                append(Current, [order(NewItemAtom, Qty2, UserPrice)], New2),
+                order_items(New2, Final)
+            ; writeln('Invalid quantity, skipping...'),
+              order_items(Current, Final)
+            )
+        ; writeln('Invalid price, try again.'),
+          order_items(Current, Final)
+        )
+    ).
+
+% ----------- Merge duplicate items -----------
+merge_order(Raw, Merged) :- merge_order_(Raw, [], Merged).
+
+merge_order_([], Acc, Acc).
+merge_order_([order(Item, Qty, Price)|T], Acc, Out) :-
+    ( select(order(Item, OldQty, Price), Acc, AccRest) ->
+        NewQty is OldQty + Qty,
+        Acc2 = [order(Item, NewQty, Price)|AccRest]
+    ; Acc2 = [order(Item, Qty, Price)|Acc]
+    ),
+    merge_order_(T, Acc2, Out).
+
+% ----------- Display bill -----------
+display_bill(OrderList) :-
+    nl, writeln('-------- BILL --------'),
+    format('~w~t~25|~w~t~35|~w~n', ['Item', 'Qty', 'Subtotal']),
+    writeln('-------------------------------------------'),
+    bill_total(OrderList, 0, GrandTotal),
+    writeln('-------------------------------------------'),
+    format('Grand Total: ~d~n', [GrandTotal]),
+    writeln('Thank you for ordering!').
+
+bill_total([], Total, Total).
+bill_total([order(Item, Qty, Price)|T], Acc, Total) :-
+    SubTotal is Qty * Price,
+    format('~w~t~25|~d~t~35|~d~n', [Item, Qty, SubTotal]),
+    Acc2 is Acc + SubTotal,
+    bill_total(T, Acc2, Total).
+
+========================================================================
+OUTPUT
+========================================================================
+?- consult('pizza_hut.pl').
+true.
+
+?- order.
+
+Welcome to Pizza Hut!
+
+-------- MENU --------
+Item                     Price
+--------------------------------
+Margherita               300
+Pepperoni                400
+Veggie                   350
+BBQ Chicken              450
+Farmhouse                420
+Paneer Tikka             430
+Cheese Burst             480
+Garlic Bread             160
+Cheesy Dip               40
+Coke                     60
+Brownie                  120
+--------------------------------
+
+Start ordering. (Type "done" to finish).
+Enter item name: Veggie
+Enter quantity: 2
+Enter item name: Coke
+Enter quantity: 2
+Enter item name: done
+
+-------- BILL --------
+Item                     Qty       Subtotal
+-------------------------------------------
+Coke                     2         120
+Veggie                   2         700
+-------------------------------------------
+Grand Total: 820
+Thank you for ordering!
+true.
+
+[23bcs099@mepcolinux ex6]$cat blood_relation.pl 
+% Prevent warnings if facts are scattered
+:- discontiguous male/1.
+:- discontiguous female/1.
+:- discontiguous parent/2.
+
+% --- GENDER FACTS ---
+male(karamchand_gandhi).
+male(laxmidas_gandhi).
+male(karsandas_gandhi).
+male(mahatma_gandhi).
+male(harilal_gandhi).
+male(manilal_gandhi).
+male(ramdas_gandhi).
+male(devdas_gandhi).
+
+female(putlibai).
+female(raliatbehn).
+female(kasturba_gandhi).
+
+% --- PARENT FACTS ---
+% Karamchand & Putlibai children
+parent(karamchand_gandhi, laxmidas_gandhi).
+parent(putlibai, laxmidas_gandhi).
+
+parent(karamchand_gandhi, karsandas_gandhi).
+parent(putlibai, karsandas_gandhi).
+
+parent(karamchand_gandhi, mahatma_gandhi).
+parent(putlibai, mahatma_gandhi).
+
+parent(karamchand_gandhi, raliatbehn).
+parent(putlibai, raliatbehn).
+
+% Mahatma & Kasturba children
+parent(mahatma_gandhi, harilal_gandhi).
+parent(kasturba_gandhi, harilal_gandhi).
+
+parent(mahatma_gandhi, manilal_gandhi).
+parent(kasturba_gandhi, manilal_gandhi).
+
+parent(mahatma_gandhi, ramdas_gandhi).
+parent(kasturba_gandhi, ramdas_gandhi).
+
+parent(mahatma_gandhi, devdas_gandhi).
+parent(kasturba_gandhi, devdas_gandhi).
+
+% --- RULES ---
+father(F, C) :- male(F), parent(F, C).
+mother(M, C) :- female(M), parent(M, C).
+
+% Full siblings share both the same father and the same mother
+sibling(A, B) :-
+    father(F, A), father(F, B),
+    mother(M, A), mother(M, B),
+    A \= B.
+
+brother(Bro, Sib) :- male(Bro), sibling(Bro, Sib).
+sister(Sis, Sib)  :- female(Sis), sibling(Sis, Sib).
+
+grandparent(GP, GC) :- parent(GP, P), parent(P, GC).
+grandfather(GF, GC) :- male(GF), grandparent(GF, GC).
+grandmother(GM, GC) :- female(GM), grandparent(GM, GC).
+
+% Recursive ancestor rule
+ancestor(Anc, Desc) :- parent(Anc, Desc).
+ancestor(Anc, Desc) :- parent(Anc, X), ancestor(X, Desc).
+
+==================================================================
+OUTPUT
+==================================================================
+?- consult('gandhi_family.pl').
+true.
+
+?- father(F,mahatma_gandhi).
+F = karamchand_gandhi .
+
+?- ancestor(karamchand_gandhi,devdas_gandhi).
+true .
+
+?- brother(B,manilal_gandhi).
+B = harilal_gandhi ;
+B = ramdas_gandhi ;
+B = devdas_gandhi ;
+false.
+
+?- sister(S,mahatma_gandhi).
+S = raliatbehn ;
+false.
+
+?- sibling(S,manilal_gandhi).
+S = harilal_gandhi ;
+S = ramdas_gandhi ;
+S = devdas_gandhi .
+
+[23bcs099@mepcolinux ex6]$exit
+exit
+
+Script done on Wed Mar 25 16:25:30 2026

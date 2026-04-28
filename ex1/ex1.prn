@@ -1,0 +1,595 @@
+Script started on Wed Jan 28 14:12:47 2026
+[23bcs099@mepcolinux ex1]$cat traversal.py
+from queue import Queue
+import heapq
+
+def add_node(graph, node):
+    if node not in graph:
+        graph[node] = []
+def delete_node(graph, node):
+    if node in graph:
+        del graph[node]
+        for neighbours in graph.values():
+            if node in neighbours:
+                neighbours.remove(node)
+    else:
+        print("\nNode does not exist in the graph.")
+def add_edge(graph, x, y, weight=1):
+    if x not in graph:
+        add_node(graph, x)
+    if y not in graph:
+        add_node(graph, y)
+    if y not in graph[x]:
+        graph[x].append(y)
+    if x not in graph[y]:
+        graph[y].append(x)
+    # Store weights for both directions
+    weights[(x, y)] = weight
+    weights[(y, x)] = weight
+def delete_edge(graph, x, y):
+    if x in graph and y in graph[x]:
+        graph[x].remove(y)
+    if y in graph and x in graph[y]:
+        graph[y].remove(x)
+    # Remove weights
+    if (x, y) in weights:
+        del weights[(x, y)]
+    if (y, x) in weights:
+        del weights[(y, x)]
+def display_adjlist(graph):
+    print("\nAdjacency List:")
+    for node in graph:
+        print(f'{node}: {graph[node]}')
+def bfs(graph, start, goals):
+    visited = set([start])
+    q = Queue()
+    q.put(start)
+    result = []
+    print("\n\tBFS:")
+    while not q.empty():
+        print("\nFringe (queue):", list(q.queue))
+        current = q.get()
+        result.append(current)
+        print("\nPath so far:", result)
+        if current in goals:
+            print("\nGoal found! Path:", result)
+            break
+        for neighbor in graph.get(current, []):
+            if neighbor not in visited:
+                q.put(neighbor)
+                visited.add(neighbor)
+
+def dfs(graph, start, goals):
+    visited = set()
+    stack = [start]
+    result = []
+    print("\n\tDFS Traversal:")
+    while stack:
+        print("Fringe (stack):", list(stack))
+        current = stack.pop()
+        if current not in visited:
+            result.append(current)
+            print("Path so far:", result)
+            if current in goals:
+                print("Goal found! Path:", result)
+                break
+            visited.add(current)
+            for neighbor in reversed(graph.get(current, [])):  # For consistent order
+                if neighbor not in visited:
+                    stack.append(neighbor)
+
+def ucs(graph, start, goals):
+    visited = set()
+    # Priority queue: (cumulative_cost, node, path)
+    pq = [(0, start, [start])]
+    print("\n\tUCS Traversal:")
+
+    while pq:
+        print("\nFringe (priority queue - cost, node):", [(cost, node) for cost, node, _ in pq])
+        current_cost, current_node, path = heapq.heappop(pq)
+
+        if current_node in visited:
+            continue
+
+        visited.add(current_node)
+        print(f"Visiting: {current_node} with cost: {current_cost}")
+        print("Path so far:", path)
+
+        if current_node in goals:
+            print(f"\nGoal found! Path: {path}")
+            print(f"Total cost: {current_cost}")
+            return path, current_cost
+
+        for neighbor in graph.get(current_node, []):
+            if neighbor not in visited:
+                edge_weight = weights.get((current_node, neighbor), 1)
+                new_cost = current_cost + edge_weight
+                new_path = path + [neighbor]
+                heapq.heappush(pq, (new_cost, neighbor, new_path))
+
+    print("\nGoal not found!")
+    return None, float('inf')
+
+def a_star_search(graph, start, goals):
+    visited = set()
+    # Priority queue: (f_cost, g_cost, node, path)
+    # f_cost = g_cost + h_cost (evaluation function)
+    h_start = heuristics.get(start, 0)
+    pq = [(h_start, 0, start, [start])]
+    print("\n\tA* Search Traversal:")
+
+    while pq:
+        print("\nFringe (priority queue - f, g, node):", [(f, g, node) for f, g, node, _ in pq])
+        f_cost, g_cost, current_node, path = heapq.heappop(pq)
+
+        if current_node in visited:
+            continue
+
+        visited.add(current_node)
+        h_cost = heuristics.get(current_node, 0)
+        print(f"Visiting: {current_node} | g(n)={g_cost}, h(n)={h_cost}, f(n)={f_cost}")
+        print("Path so far:", path)
+
+        if current_node in goals:
+            print(f"\nGoal found! Path: {path}")
+            print(f"Total cost: {g_cost}")
+            return path, g_cost
+
+        for neighbor in graph.get(current_node, []):
+            if neighbor not in visited:
+                edge_weight = weights.get((current_node, neighbor), 1)
+                new_g_cost = g_cost + edge_weight
+                h_neighbor = heuristics.get(neighbor, 0)
+                new_f_cost = new_g_cost + h_neighbor
+                new_path = path + [neighbor]
+                heapq.heappush(pq, (new_f_cost, new_g_cost, neighbor, new_path))
+
+    print("\nGoal not found!")
+    return None, float('inf')
+
+graph = {}
+weights = {}  # Dictionary to store edge weights
+heuristics = {}  # Dictionary to store heuristic values for A*
+n = int(input("Enter number of nodes: "))
+print("Enter Nodes:")
+for _ in range(n):
+    node = input()
+    add_node(graph, node)
+
+e = int(input("Enter number of edges: "))
+print("Enter Edges (x y weight) or (x y) for weight=1:")
+for _ in range(e):
+    edge_input = input().split()
+    if len(edge_input) == 3:
+        x, y, w = edge_input[0], edge_input[1], int(edge_input[2])
+        add_edge(graph, x, y, w)
+    else:
+        x, y = edge_input[0], edge_input[1]
+        add_edge(graph, x, y)
+display_adjlist(graph)
+print("\n\t----Menu----\n0.Exit\n1.BFS\n2.DFS\n3.UCS\n4.Add node\n5.Add edge\n6.Delete node\n7.Delete edge\n8.Display adjacency list\n9.A* Search\n")
+while True:
+    ch = int(input("\nEnter choice (0-9): "))
+    if ch == 1:
+        start = input("Enter Start node: ")
+        k = int(input("Enter number of goal nodes: "))
+        print("Enter Goal nodes:")
+        goals = set(input() for _ in range(k))
+        bfs(graph, start, goals)
+    elif ch == 2:
+        start = input("Enter Start node: ")
+        k = int(input("Enter number of goal nodes: "))
+        print("Enter Goal nodes:")
+        goals = set(input() for _ in range(k))
+        dfs(graph, start, goals)
+    elif ch == 3:
+        start = input("Enter Start node: ")
+        k = int(input("Enter number of goal nodes: "))
+        print("Enter Goal nodes:")
+        goals = set(input() for _ in range(k))
+        ucs(graph, start, goals)
+    elif ch == 4:
+        n = int(input("Enter number of nodes: "))
+        print("Enter Nodes:")
+        for _ in range(n):
+            node = input()
+            add_node(graph, node)
+    elif ch == 5:
+        e = int(input("Enter number of edges: "))
+        print("Enter Edges (x y weight) or (x y) for weight=1:")
+        for _ in range(e):
+            edge_input = input().split()
+            if len(edge_input) == 3:
+                x, y, w = edge_input[0], edge_input[1], int(edge_input[2])
+                add_edge(graph, x, y, w)
+            else:
+                x, y = edge_input[0], edge_input[1]
+                add_edge(graph, x, y)
+    elif ch == 6:
+        n = int(input("Enter number of nodes: "))
+        print("Enter Nodes:")
+        for _ in range(n):
+            node = input()
+            delete_node(graph, node)
+    elif ch == 7:
+        e = int(input("Enter number of edges: "))
+        print("Enter Edges (x y):")
+        for _ in range(e):
+            x, y = input().split()
+            delete_edge(graph, x, y)
+    elif ch == 8:
+        display_adjlist(graph)
+    elif ch == 9:
+        print("\n--- A* Search ---")
+        # Set heuristics first
+        print("\nSet Heuristic Values (estimated cost to goal):")
+        n = int(input("Enter number of nodes to set heuristics: "))
+        print("Enter Node and Heuristic value (node h_value):")
+        heuristics.clear()  # Clear previous heuristics
+        for _ in range(n):
+            node_h = input().split()
+            node = node_h[0]
+            h_value = int(node_h[1])
+            heuristics[node] = h_value
+        print("\nHeuristics set:", heuristics)
+
+        # Now run A* search
+        start = input("\nEnter Start node: ")
+        k = int(input("Enter number of goal nodes: "))
+        print("Enter Goal nodes:")
+        goals = set(input() for _ in range(k))
+        a_star_search(graph, start, goals)
+    elif ch == 0:
+        break
+    else:
+        print("\nInvalid Choice.")
+[23bcs099@mepcolinux ex1]$python3 traversal.py
+Enter number of nodes: 14
+Enter Nodes:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+Enter number of edges: 16
+Enter Edges (x y weight) or (x y) for weight=1:
+1 2
+1 3
+2 4
+2 5
+3 6
+4 8
+5 8
+6 7
+6 9
+7 9
+7 14
+8 10
+10 11
+10 12
+11 13
+12 13
+
+Adjacency List:
+1: ['2', '3']
+2: ['1', '4', '5']
+3: ['1', '6']
+4: ['2', '8']
+5: ['2', '8']
+6: ['3', '7', '9']
+7: ['6', '9', '14']
+8: ['4', '5', '10']
+9: ['6', '7']
+10: ['8', '11', '12']
+11: ['10', '13']
+12: ['10', '13']
+13: ['11', '12']
+14: ['7']
+
+        ----Menu----
+0.Exit
+1.BFS
+2.DFS
+3.UCS
+4.Add node
+5.Add edge
+6.Delete node
+7.Delete edge
+8.Display adjacency list
+9.A* Search
+
+
+Enter choice (0-9): 4
+Enter number of nodes: 1
+Enter Nodes:
+15
+
+Enter choice (0-9): 5
+Enter number of edges: 1
+Enter Edges (x y weight) or (x y) for weight=1:
+14 15
+
+Enter choice (0-9): 7
+Enter number of edges: 1
+Enter Edges (x y):
+14 15
+
+Enter choice (0-9): 8
+
+Adjacency List:
+1: ['2', '3']
+2: ['1', '4', '5']
+3: ['1', '6']
+4: ['2', '8']
+5: ['2', '8']
+6: ['3', '7', '9']
+7: ['6', '9', '14']
+8: ['4', '5', '10']
+9: ['6', '7']
+10: ['8', '11', '12']
+11: ['10', '13']
+12: ['10', '13']
+13: ['11', '12']
+14: ['7']
+15: []
+
+Enter choice (0-9): 6
+Enter number of nodes: 1
+Enter Nodes:
+15
+
+Enter choice (0-9): 4
+Enter number of nodes: 1
+Enter Nodes:
+15
+
+Enter choice (0-9): 5
+Enter number of edges: 1
+Enter Edges (x y weight) or (x y) for weight=1:
+14 15
+
+Enter choice (0-9): 8
+
+Adjacency List:
+1: ['2', '3']
+2: ['1', '4', '5']
+3: ['1', '6']
+4: ['2', '8']
+5: ['2', '8']
+6: ['3', '7', '9']
+7: ['6', '9', '14']
+8: ['4', '5', '10']
+9: ['6', '7']
+10: ['8', '11', '12']
+11: ['10', '13']
+12: ['10', '13']
+13: ['11', '12']
+14: ['7','15']
+15: ['14']
+
+Enter choice (0-9): 1
+Enter Start node: 4
+Enter number of goal nodes: 1
+Enter Goal nodes:
+15
+
+	BFS:
+
+Fringe (queue): ['4']
+
+Visited so far: ['4']
+
+Fringe (queue): ['2', '8']
+
+Visited so far: ['4', '2']
+
+Fringe (queue): ['8', '1', '5']
+
+Visited so far: ['4', '2', '8']
+
+Fringe (queue): ['1', '5', '10']
+
+Visited so far: ['4', '2', '8', '1']
+
+Fringe (queue): ['5', '10', '3']
+
+Visited so far: ['4', '2', '8', '1', '5']
+
+Fringe (queue): ['10', '3']
+
+Visited so far: ['4', '2', '8', '1', '5', '10']
+
+Fringe (queue): ['3', '11', '12']
+
+Visited so far: ['4', '2', '8', '1', '5', '10', '3']
+
+Fringe (queue): ['11', '12', '6']
+
+Visited so far: ['4', '2', '8', '1', '5', '10', '3', '11']
+
+Fringe (queue): ['12', '6', '13']
+
+Visited so far: ['4', '2', '8', '1', '5', '10', '3', '11', '12']
+
+Fringe (queue): ['6', '13']
+
+Visited so far: ['4', '2', '8', '1', '5', '10', '3', '11', '12', '6']
+
+Fringe (queue): ['13', '7', '9']
+
+Visited so far: ['4', '2', '8', '1', '5', '10', '3', '11', '12', '6', '13']
+
+Fringe (queue): ['7', '9']
+
+Visited so far: ['4', '2', '8', '1', '5', '10', '3', '11', '12', '6', '13', '7']
+
+Fringe (queue): ['9', '14']
+
+Visited so far: ['4', '2', '8', '1', '5', '10', '3', '11', '12', '6', '13', '7', '9']
+
+Fringe (queue): ['14']
+
+Visited so far: ['4', '2', '8', '1', '5', '10', '3', '11', '12', '6', '13', '7', '9', '14']
+
+Fringe (queue): ['15']
+
+Visited so far: ['4', '2', '8', '1', '5', '10', '3', '11', '12', '6', '13', '7', '9', '14', '15']
+
+Goal found! Path: ['4', '2', '8', '1', '5', '10', '3', '11', '12', '6', '13', '7', '9', '14', '15']
+
+Enter choice (0-9): 2
+Enter Start node: 4
+Enter number of goal nodes: 1
+Enter Goal nodes:
+7
+
+	DFS Traversal:
+Fringe (stack): ['4']
+Visited so far: ['4']
+Fringe (stack): ['8', '2']
+Visited so far: ['4', '2']
+Fringe (stack): ['8', '5', '1']
+Visited so far: ['4', '2', '1']
+Fringe (stack): ['8', '5', '3']
+Visited so far: ['4', '2', '1', '3']
+Fringe (stack): ['8', '5', '6']
+Visited so far: ['4', '2', '1', '3', '6']
+Fringe (stack): ['8', '5', '9', '7']
+Visited so far: ['4', '2', '1', '3', '6', '7']
+Goal found! Path: ['4', '2', '1', '3', '6', '7']
+
+Enter choice (0-9): 0
+[23bcs099@mepcolinux ex1]$exit
+exit
+
+[23bcs099@mepcolinux ex1]$python3 traversal.py
+Enter number of nodes: 15
+Enter Nodes:
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+Enter number of edges: 15
+Enter Edges (x y weight) or (x y) for weight=1:
+1 2 2
+1 3 4
+2 4 7
+2 5 3
+4 8 2
+5 8 4
+5 9 6
+8 12 1
+9 13 5
+3 6 1
+3 7 5
+6 10 3
+7 11 2
+10 14 4
+11 15 6
+
+Adjacency List:
+1: ['2', '3']
+2: ['1', '4', '5']
+3: ['1', '6', '7']
+4: ['2', '8']
+5: ['2', '8', '9']
+6: ['3', '10']
+7: ['3', '11']
+8: ['4', '5', '12']
+9: ['5', '13']
+10: ['6', '14']
+11: ['7', '15']
+12: ['8']
+13: ['9']
+14: ['10']
+15: ['11']
+
+        ----Menu----
+0.Exit
+1.BFS
+2.DFS
+3.UCS
+4.Add node
+5.Add edge
+6.Delete node
+7.Delete edge
+8.Display adjacency list
+9.A* Search
+
+
+Enter choice (0-9): 3
+Enter Start node: 1
+Enter number of goal nodes: 1
+Enter Goal nodes:
+12
+
+        UCS Traversal:
+
+Fringe (priority queue - cost, node): [(0, '1')]
+Visiting: 1 with cost: 0
+Path so far: ['1']
+
+Fringe (priority queue - cost, node): [(2, '2'), (4, '3')]
+Visiting: 2 with cost: 2
+Path so far: ['1', '2']
+
+Fringe (priority queue - cost, node): [(4, '3'), (9, '4'), (5, '5')]
+Visiting: 3 with cost: 4
+Path so far: ['1', '3']
+
+Fringe (priority queue - cost, node): [(5, '5'), (9, '4'), (5, '6'), (9, '7')]
+Visiting: 5 with cost: 5
+Path so far: ['1', '2', '5']
+
+Fringe (priority queue - cost, node): [(5, '6'), (9, '4'), (9, '7'), (9, '8'), (11, '9')]
+Visiting: 6 with cost: 5
+Path so far: ['1', '3', '6']
+
+Fringe (priority queue - cost, node): [(8, '10'), (9, '4'), (9, '7'), (11, '9'), (9, '8')]
+Visiting: 10 with cost: 8
+Path so far: ['1', '3', '6', '10']
+
+Fringe (priority queue - cost, node): [(9, '4'), (9, '8'), (9, '7'), (11, '9'), (12, '14')]
+Visiting: 4 with cost: 9
+Path so far: ['1', '2', '4']
+
+Fringe (priority queue - cost, node): [(9, '7'), (9, '8'), (12, '14'), (11, '9'), (11, '8')]
+Visiting: 7 with cost: 9
+Path so far: ['1', '3', '7']
+
+Fringe (priority queue - cost, node): [(9, '8'), (11, '11'), (12, '14'), (11, '9'), (11, '8')]
+Visiting: 8 with cost: 9
+Path so far: ['1', '2', '5', '8']
+
+Fringe (priority queue - cost, node): [(10, '12'), (11, '11'), (12, '14'), (11, '9'), (11, '8')]
+Visiting: 12 with cost: 10
+Path so far: ['1', '2', '5', '8', '12']
+
+Goal found! Path: ['1', '2', '5', '8', '12']
+Total cost: 10
+
+Enter choice (0-9): 0
+[23bcs099@mepcolinux ex1]$exit
+exit
+
+Script done on Wed Jan 28 14:19:20 2026
